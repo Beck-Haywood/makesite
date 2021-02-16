@@ -1,13 +1,12 @@
 package main
 
 import (
-	// "fmt"
+	"fmt"
 	"flag"
 	"os"
-	// "bytes"
 	"html/template"
 	"io/ioutil"
-
+	"strings"
 )
 
 type Post struct {
@@ -18,7 +17,26 @@ func main() {
 	// Get flag value
 	filePath := flag.String("postPath", "first-post.txt", "Name of file you want to read from.")
 	outputPath := flag.String("outputPath", "new-file.html", "Name of file you want to output to.")
+	dirName := flag.String("dir", ".", "This is the directory.")
 	flag.Parse()
+
+	files, err := ioutil.ReadDir(*dirName)
+	if err != nil {
+		panic(err)
+	}
+	tail := "txt"
+	for _, file := range files {
+		for i := range file.Name() {
+			if file.Name()[i] == '.' {
+				s := strings.Split(file.Name(), ".")[1]
+				if s == tail {
+					// Is txt file
+					fmt.Println(file.Name())
+					writeHTMLGivenFile("template.tmpl", file.Name())
+				}
+			}
+		}
+	}
 
 	// Read file using flag 
 	fileContents, err := ioutil.ReadFile(*filePath)
@@ -48,4 +66,24 @@ func main() {
 
 	file.Close()
 
+}
+
+func writeHTMLGivenFile(templateName string, fileName string) {
+	fileContents, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		panic(err)
+	}
+	post := Post{Text: string(fileContents)}
+	t := template.Must(template.New("template.tmpl").ParseFiles(templateName))
+	ext := ".html"
+	filter := strings.Split(fileName, ".")[0] + ext
+	f, err := os.Create(filter)
+	if err != nil {
+		panic(err)
+	}
+
+	err = t.Execute(f, post)
+	if err != nil {
+		panic(err)
+	}
 }
