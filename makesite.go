@@ -7,6 +7,11 @@ import (
 	"html/template"
 	"io/ioutil"
 	"strings"
+
+	"context"
+	"cloud.google.com/go/translate"
+	_ "cloud.google.com/go/translate/apiv3"
+	"golang.org/x/text/language"
 )
 
 type Post struct {
@@ -18,7 +23,10 @@ func main() {
 	filePath := flag.String("postPath", "first-post.txt", "Name of file you want to read from.")
 	outputPath := flag.String("outputPath", "new-file.html", "Name of file you want to output to.")
 	dirName := flag.String("dir", ".", "This is the directory.")
+	lang := flag.String("lang", "es", "This is the language you want to translate, inputting google's language abbreviations.")
+
 	flag.Parse()
+	fmt.Println("Language:", lang)
 
 	files, err := ioutil.ReadDir(*dirName)
 	if err != nil {
@@ -32,6 +40,21 @@ func main() {
 				if s == tail {
 					// Is txt file
 					fmt.Println(file.Name())
+					fileContents, err := ioutil.ReadFile(file.Name())
+					if err != nil {
+						panic(err)
+					}
+
+					contents, error := translateText(*lang, string(fileContents))
+					if error != nil {
+						panic(error)
+					}
+					bytesToWrite := []byte(contents)
+
+					err1 := ioutil.WriteFile(file.Name(), bytesToWrite, 0644)
+					if err1 != nil {
+						panic(err1)
+					}
 					writeHTMLGivenFile("template.tmpl", file.Name())
 				}
 			}
@@ -86,4 +109,30 @@ func writeHTMLGivenFile(templateName string, fileName string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func translateText(targetLanguage, text string) (string, error) {
+	// text := "The Go Gopher is cute"
+	ctx := context.Background()
+
+	lang, err := language.Parse(targetLanguage)
+	if err != nil {
+		return "", fmt.Errorf("language.Parse: %v", err)
+	}
+
+	client, err := translate.NewClient(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+
+	resp, err := client.Translate(ctx, []string{text}, lang, nil)
+	if err != nil {
+		return "", fmt.Errorf("Translate: %v", err)
+	}
+	if len(resp) == 0 {
+		return "", fmt.Errorf("Translate returned empty response to text: %s", text)
+	}
+	// fmt.Println(resp[0].Text, nil)
+	return resp[0].Text, nil
 }

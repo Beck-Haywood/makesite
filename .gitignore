@@ -28,3 +28,9 @@
 # Binaries
 makesite
 solution.go
+
+# my secrets 
+
+/credentials
+
+go.sum
